@@ -3,6 +3,9 @@ import random
 import json
 import urllib3
 import time
+from PIL import Image
+from io import BytesIO
+
 
 urllib3.disable_warnings()
 print('提示：请先在main.py中login函数输入对应账号密码哦')
@@ -46,6 +49,8 @@ def get_code():
 
     with open('verifycode.png', 'wb') as f:
         f.write(img)
+        img = Image.open(BytesIO(img))
+        img.show()
 
 def login():
     verifyCode = input('输入验证码：')
@@ -67,7 +72,6 @@ def get_course_list():
     res = session.post(courseList_url, verify=False)
     # 课程信息
     courseList = res.json()['courseList']
-
     return courseList
 
 def choose(courseList):
@@ -77,7 +81,7 @@ def choose(courseList):
 
         print(str(i+1) +'--'+ courseName)
 
-def into_course(courseList):
+def into_course(courseList, time_start):
     i = int(input('请选择你要刷的课程：')) - 1
     course = courseList[i]
 
@@ -108,85 +112,251 @@ def into_course(courseList):
         module_name = module['name']
         # 进度
         module_percent = module['percent']
-        
-        # 如果目录进度100% 跳过
-        if str(module_percent) == '100.0':
-            print(module_name + '  该目录进度100%  跳过')
-            time.sleep(5)
-            continue
-        
-        # 子目录列表
-        topicList = get_topicId(courseOpenId, module_id, openClassId)
 
-        for o in range(len(topicList)):
-            # 每个课件中 小课件id
-            topicId = topicList[o]['id']
-            # upTopicId = topicList[o]['upTopicId']
+        print(i+1, '  ', module_name , '  进度：' , module_percent)
 
-            # 文件列表
-            cellList = get_cellid(courseOpenId, openClassId, topicId) 
-        
-            for p in range(len(cellList)):
-                # 文件
-                cell = cellList[p]
+    i = int(input('请选择你要刷章节(输入‘0’表示全选)：'))
+    if i != 0:
+        while True:
+            # 每个课件
+            module = module_list[i-1]
+            # 课件id
+            module_id = module['id']
+            # 目录
+            module_name = module['name']
+            # 进度
+            module_percent = module['percent']
+            # 子目录列表
+            topicList = get_topicId(courseOpenId, module_id, openClassId)
 
-                cellId = cell['Id']
-                # upCellId = cell['upCellId']
-                cellName = cell['cellName']
-                categoryName = cell['categoryName']  # 文件名称
-                stuCellPercent = cell['stuCellPercent']
+            for o in range(len(topicList)):
+                # 每个课件中 小课件id
+                topicId = topicList[o]['id']
+                # upTopicId = topicList[o]['upTopicId']
 
-                if stuCellPercent == 100:
-                    print(cellName + '进度100%  跳过')  
-                    time.sleep(2)
-                    continue
+                # 文件列表
+                cellList = get_cellid(courseOpenId, openClassId, topicId) 
+            
+                for p in range(len(cellList)):
+                    # 文件
+                    cell = cellList[p]
 
-                if categoryName == '视频':
-                    # 进入播放页面
-                    # return 当前观看信息
-                    res = get_view_directory(courseOpenId, openClassId, cellId, module_id, cellName)
-                    cellLogId = res['cellLogId']
-                    cellLogId = 'test'
-                    audioVideoLong = res['audioVideoLong']
-                    stuStudyNewlyTime = res['stuStudyNewlyTime']
-                    cellPercent = res['cellPercent']
-                    print('视频进度---' + str(cellPercent))
-                    print('开始！！！')
-                    video(courseOpenId, openClassId, cellId, cellLogId,stuStudyNewlyTime, audioVideoLong)
-                    add_view_content(courseOpenId, openClassId, cellId, cellName)
+                    cellId = cell['Id']
+                    # upCellId = cell['upCellId']
+                    cellName = cell['cellName']
+                    categoryName = cell['categoryName']  # 文件名称
+                    stuCellPercent = cell['stuCellPercent']
 
-                elif categoryName == 'ppt' or  categoryName == '文档':
-                    # 进入播放页面
-                    res = get_view_directory(courseOpenId, openClassId, cellId, module_id, cellName)
-                    cellLogId = res['cellLogId']
-                    cellLogId = 'test'
-                    pageCount = res['pageCount']
-                    cellPercent = res['cellPercent']
-                    stuCellViewTime = res['stuCellViewTime']
-
-                    if int(cellPercent) == 100:
-                        print('文件进度100% 评论功能开启...')
-                        add_view_content(courseOpenId, openClassId, cellId, cellName)
+                    if stuCellPercent == 100:
+                        print(cellName + '进度100%  跳过')  
                         time.sleep(1)
                         continue
-                    print('ppt-or-office文档 已就绪!!!')
-                    print('之前总学习时间：' + str(stuCellViewTime))
-                    #　刷ppt
-                    ppt(courseOpenId, openClassId, cellId, cellLogId, pageCount)
-                    res = get_view_directory(courseOpenId, openClassId, cellId, module_id, cellName)
-                    stuCellViewTime = res['stuCellViewTime']
-                    print('现在总文件学习时间：' +  str(stuCellViewTime))
-                    add_view_content(courseOpenId, openClassId, cellId, cellName)
-                else:
-                    print(' Warning：{}-该文件非 视频 or ppt or office文档！'.format(cellName))
-                    print(' 跳过 ')
-                    time.sleep(1)
-                    continue
+                    
+                    if categoryName == '子节点':
+                        childNodeList = cell['childNodeList']
+                        for n in range(len(childNodeList)):
+                            childNode = childNodeList[n]
+                            cellId = childNode['Id']
+                            # upCellId = cell['upCellId']
+                            cellName = childNode['cellName']
+                            categoryName = childNode['categoryName']  # 文件名称
+                            stuCellPercent = cell['stuCellPercent']
+
+                            
+                            if categoryName == '视频' or categoryName == '音频':
+                                # 进入播放页面
+                                # return 当前观看信息
+                                res = get_view_directory(courseOpenId, openClassId, cellId, module_id, cellName)
+                                cellLogId = res['cellLogId']
+                                cellLogId = 'test'
+                                audioVideoLong = res['audioVideoLong']
+                                stuStudyNewlyTime = res['stuStudyNewlyTime']
+                                cellPercent = res['cellPercent']
+                                print('视频进度---' + str(cellPercent))
+                                print('开始！！！')
+                                video(courseOpenId, openClassId, cellId, cellLogId,stuStudyNewlyTime, audioVideoLong, time_start)
+                                add_view_content(courseOpenId, openClassId, cellId, cellName)
+
+                            elif categoryName == 'ppt' or  categoryName == '文档':
+                                # 进入播放页面
+                                res = get_view_directory(courseOpenId, openClassId, cellId, module_id, cellName)
+                                cellLogId = res['cellLogId']
+                                cellLogId = 'test'
+                                pageCount = res['pageCount']
+                                cellPercent = res['cellPercent']
+                                stuCellViewTime = res['stuCellViewTime']
+
+                                if int(cellPercent) == 100:
+                                    print('文件进度100% 评论功能开启...')
+                                    add_view_content(courseOpenId, openClassId, cellId, cellName)
+                                    time.sleep(1)
+                                    continue
+                                print('ppt-or-office文档 已就绪!!!')
+                                print('之前总学习时间：' + str(stuCellViewTime))
+                                #　刷ppt
+                                ppt(courseOpenId, openClassId, cellId, cellLogId, pageCount, time_start)
+                                res = get_view_directory(courseOpenId, openClassId, cellId, module_id, cellName)
+                                stuCellViewTime = res['stuCellViewTime']
+                                print('现在总文件学习时间：' +  str(stuCellViewTime))
+                                add_view_content(courseOpenId, openClassId, cellId, cellName)
+                            else:
+                                print(' Warning：{}-该文件非 视频 or ppt or office文档！'.format(cellName))
+                                print(' 跳过 ')
+                                time.sleep(2)
+                                continue
+                            time.sleep(2)
+                         
+                         
+                    if categoryName == '视频' or categoryName == '音频':
+                        # 进入播放页面
+                        # return 当前观看信息
+                        res = get_view_directory(courseOpenId, openClassId, cellId, module_id, cellName)
+                        cellLogId = res['cellLogId']
+                        cellLogId = 'test'
+                        audioVideoLong = res['audioVideoLong']
+                        stuStudyNewlyTime = res['stuStudyNewlyTime']
+                        cellPercent = res['cellPercent']
+                        print('视频进度---' + str(cellPercent))
+                        print('开始！！！')
+                        video(courseOpenId, openClassId, cellId, cellLogId,stuStudyNewlyTime, audioVideoLong, time_start)
+                        add_view_content(courseOpenId, openClassId, cellId, cellName)
+
+                    elif categoryName == 'ppt' or  categoryName == '文档':
+                        # 进入播放页面
+                        res = get_view_directory(courseOpenId, openClassId, cellId, module_id, cellName)
+                        cellLogId = res['cellLogId']
+                        cellLogId = 'test'
+                        pageCount = res['pageCount']
+                        cellPercent = res['cellPercent']
+                        stuCellViewTime = res['stuCellViewTime']
+
+                        if int(cellPercent) == 100:
+                            print('文件进度100% 评论功能开启...')
+                            add_view_content(courseOpenId, openClassId, cellId, cellName)
+                            time.sleep(1)
+                            continue
+                        print('ppt-or-office文档 已就绪!!!')
+                        print('之前总学习时间：' + str(stuCellViewTime))
+                        #　刷ppt
+                        ppt(courseOpenId, openClassId, cellId, cellLogId, pageCount, time_start)
+                        res = get_view_directory(courseOpenId, openClassId, cellId, module_id, cellName)
+                        stuCellViewTime = res['stuCellViewTime']
+                        print('现在总文件学习时间：' +  str(stuCellViewTime))
+                        add_view_content(courseOpenId, openClassId, cellId, cellName)
+                    else:
+                        print(' Warning：{}-该文件非 视频 or ppt or office文档！'.format(cellName))
+                        print(' 跳过 ')
+                        time.sleep(2)
+                        continue
+                    time.sleep(2)
+                time.sleep(2)
+                # break       
+            time.sleep(2)
+            # break
+            for i in range(len(module_list)):
+            # 每个课件
+            module = module_list[i]
+            # 课件id
+            module_id = module['id']
+            # 目录
+            module_name = module['name']
+            # 进度
+            module_percent = module['percent']
+
+            print(i+1, '  ', module_name , '  进度：' , module_percent)
+            
+            i = int(input('请选择你要刷章节：'))
+
+            
+    else:
+        for i in range(len(module_list)):
+            # 每个课件
+            module = module_list[i]
+            # 课件id
+            module_id = module['id']
+            # 目录
+            module_name = module['name']
+            # 进度
+            module_percent = module['percent']
+            
+            # 如果目录进度100% 跳过
+            if str(module_percent) == '100.0':
+                print(module_name + '  该目录进度100%  跳过')
                 time.sleep(1)
-            time.sleep(1)
-            # break       
-        time.sleep(1)
-        # break
+                continue
+            
+            # 子目录列表
+            topicList = get_topicId(courseOpenId, module_id, openClassId)
+
+            for o in range(len(topicList)):
+                # 每个课件中 小课件id
+                topicId = topicList[o]['id']
+                # upTopicId = topicList[o]['upTopicId']
+
+                # 文件列表
+                cellList = get_cellid(courseOpenId, openClassId, topicId) 
+            
+                for p in range(len(cellList)):
+                    # 文件
+                    cell = cellList[p]
+
+                    cellId = cell['Id']
+                    # upCellId = cell['upCellId']
+                    cellName = cell['cellName']
+                    categoryName = cell['categoryName']  # 文件名称
+                    stuCellPercent = cell['stuCellPercent']
+
+                    if stuCellPercent == 100:
+                        print(cellName + '进度100%  跳过')  
+                        time.sleep(1)
+                        continue
+
+                    if categoryName == '视频' or categoryName == '音频':
+                        # 进入播放页面
+                        # return 当前观看信息
+                        res = get_view_directory(courseOpenId, openClassId, cellId, module_id, cellName)
+                        cellLogId = res['cellLogId']
+                        cellLogId = 'test'
+                        audioVideoLong = res['audioVideoLong']
+                        stuStudyNewlyTime = res['stuStudyNewlyTime']
+                        cellPercent = res['cellPercent']
+                        print('视频进度---' + str(cellPercent))
+                        print('开始！！！')
+                        video(courseOpenId, openClassId, cellId, cellLogId,stuStudyNewlyTime, audioVideoLong, time_start)
+                        add_view_content(courseOpenId, openClassId, cellId, cellName)
+
+                    elif categoryName == 'ppt' or  categoryName == '文档':
+                        # 进入播放页面
+                        res = get_view_directory(courseOpenId, openClassId, cellId, module_id, cellName)
+                        cellLogId = res['cellLogId']
+                        cellLogId = 'test'
+                        pageCount = res['pageCount']
+                        cellPercent = res['cellPercent']
+                        stuCellViewTime = res['stuCellViewTime']
+
+                        if int(cellPercent) == 100:
+                            print('文件进度100% 评论功能开启...')
+                            add_view_content(courseOpenId, openClassId, cellId, cellName)
+                            time.sleep(1)
+                            continue
+                        print('ppt-or-office文档 已就绪!!!')
+                        print('之前总学习时间：' + str(stuCellViewTime))
+                        #　刷ppt
+                        ppt(courseOpenId, openClassId, cellId, cellLogId, pageCount, time_start)
+                        res = get_view_directory(courseOpenId, openClassId, cellId, module_id, cellName)
+                        stuCellViewTime = res['stuCellViewTime']
+                        print('现在总文件学习时间：' +  str(stuCellViewTime))
+                        add_view_content(courseOpenId, openClassId, cellId, cellName)
+                    else:
+                        print(' Warning：{}-该文件非 视频 or ppt or office文档！'.format(cellName))
+                        print(' 跳过 ')
+                        time.sleep(2)
+                        continue
+                    time.sleep(2)
+                time.sleep(2)
+                # break       
+            time.sleep(2)
+            # break
 
 def get_process_list(courseOpenId, openClassId):
     params = {
@@ -253,6 +423,8 @@ def changeCellData(courseOpenId, openClassId, moduleId, cellId, cellName):
     session.post(url, data=data, verify=False)
 
 def add_view_content(courseOpenId, openClassId, cellId, cellName):
+    if random.randint(1, 100) >= 20:
+        return 0
     url = 'https://zjy2.icve.com.cn/api/common/Directory/addCellActivity'
     print('文件：' + cellName + '---评论开始......(每篇需要数分钟！！！)')
     print('Reason 由于PC端服务器的限制！！！')
@@ -266,8 +438,9 @@ def add_view_content(courseOpenId, openClassId, cellId, cellName):
         'activityType': '1'
     }
 
-    session.post(url, data=data1, verify=False)
-    time.sleep(61)
+    if random.randint(1, 2) == 2:
+        session.post(url, data=data1, verify=False)
+        time.sleep(20)
 
     data2 = {
         'courseOpenId': courseOpenId,
@@ -279,8 +452,9 @@ def add_view_content(courseOpenId, openClassId, cellId, cellName):
         'activityType': '3'
     }
 
-    session.post(url, data=data2, verify=False)
-    time.sleep(61)
+    if random.randint(1, 2) == 2:
+        session.post(url, data=data2, verify=False)
+        time.sleep(20)
 
     data3 = {
         'courseOpenId': courseOpenId,
@@ -292,8 +466,9 @@ def add_view_content(courseOpenId, openClassId, cellId, cellName):
         'activityType': '2'
     }
 
-    session.post(url, data=data3, verify=False)
-    time.sleep(61)
+    if random.randint(1, 2) == 2:
+        session.post(url, data=data3, verify=False)
+        time.sleep(20)
 
     data4 = {
         'courseOpenId': courseOpenId,
@@ -305,10 +480,11 @@ def add_view_content(courseOpenId, openClassId, cellId, cellName):
         'activityType': '4'
     }
 
-    session.post(url, data=data4, verify=False)
-    print('Success ' + cellName + '-'*10+'增加..评论..问答..笔记..纠错..已完成'+ '-'*10)
+    if random.randint(1, 2) == 2:
+        session.post(url, data=data4, verify=False)
+        print('Success ' + cellName + '-'*10+'增加..评论..问答..笔记..纠错..已完成'+ '-'*10)
 
-def video(courseOpenId, openClassId, cellId, cellLogId, stuStudyNewlyTime, audioVideoLong):
+def video(courseOpenId, openClassId, cellId, cellLogId, stuStudyNewlyTime, audioVideoLong, time_start):
     '''
         刷视频
         通过抓包分析, 网页观看视频就是隔断时间对这个地址发送请求
@@ -320,12 +496,13 @@ def video(courseOpenId, openClassId, cellId, cellLogId, stuStudyNewlyTime, audio
     url = 'https://zjy2.icve.com.cn/api/common/Directory/stuProcessCellLog'
 
     forNum = int((audioVideoLong - stuStudyNewlyTime) / 10) # 循环次数 总视频长度-观看过后的长度分10段 每段循环后会加10.多
+
     for i in range(forNum):
         if stuStudyNewlyTime-1 < 0:
             stuStudyNewlyTime = 1
             
-        Percent = stuStudyNewlyTime-1 + 10.000001*i
-        
+        Percent = stuStudyNewlyTime - 1 + 10.0000001*i
+
         if Percent >= audioVideoLong: # 怕超过视频总长度, 不晓得会出啥事
             o = audioVideoLong
         else:
@@ -344,7 +521,8 @@ def video(courseOpenId, openClassId, cellId, cellLogId, stuStudyNewlyTime, audio
 
         r = session.post(url, params=params, verify=False).json()
         if r['code'] == 1 or r['code'] == '1':
-            print('视频时间增加成功！！！')
+            run_time = time.gmtime((time.mktime(time.localtime(time.time())) - time.mktime(time_start)))
+            print(" ",time.strftime('%H:%M:%S   ',time.localtime(time.time())),time.strftime('已经运行： %H:%M:%S   ', run_time),' 视频 学习总时间增加！')
         else:
             print('Warning 视频时间增加出错')
             exit()
@@ -352,9 +530,9 @@ def video(courseOpenId, openClassId, cellId, cellLogId, stuStudyNewlyTime, audio
         if Percent >= audioVideoLong:
             break
             
-        time.sleep(10)
+        time.sleep(5)
 
-def ppt(courseOpenId, openClassId, cellId, cellLogId, pageCount):
+def ppt(courseOpenId, openClassId, cellId, cellLogId, pageCount, time_start):
     '''
         刷ppt
         通过抓包分析, 网页观看视频就是隔断时间对这个地址发送请求
@@ -380,7 +558,8 @@ def ppt(courseOpenId, openClassId, cellId, cellLogId, pageCount):
 
         res = session.post(url, params=params, verify=False).json()
         if res['code'] == 1:
-            print('ppt加载成功 学习总时间增加！')
+            run_time = time.gmtime((time.mktime(time.localtime(time.time())) - time.mktime(time_start)))
+            print(" ",time.strftime('%H:%M:%S   ',time.localtime(time.time())),time.strftime('已经运行： %H:%M:%S   ', run_time),'ppt加载成功 学习总时间增加！')
         time.sleep(1)
 
 
@@ -395,5 +574,5 @@ if __name__ == "__main__":
 
     choose(courseList)
 
-    into_course(courseList)
-    
+    time_start = time.localtime(time.time())
+    into_course(courseList, time_start)
