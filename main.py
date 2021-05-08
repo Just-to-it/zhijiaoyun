@@ -254,16 +254,16 @@ def into_course(courseList, time_start):
             time.sleep(2)
             # break
             for i in range(len(module_list)):
-            # 每个课件
-            module = module_list[i]
-            # 课件id
-            module_id = module['id']
-            # 目录
-            module_name = module['name']
-            # 进度
-            module_percent = module['percent']
+	            # 每个课件
+	            module = module_list[i]
+	            # 课件id
+	            module_id = module['id']
+	            # 目录
+	            module_name = module['name']
+	            # 进度
+	            module_percent = module['percent']
 
-            print(i+1, '  ', module_name , '  进度：' , module_percent)
+	            print(i+1, '  ', module_name , '  进度：' , module_percent)
             
             i = int(input('请选择你要刷章节：'))
 
